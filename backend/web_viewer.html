@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NASA BloomWatch - Data Viewer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .endpoint-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #4CAF50;
+        }
+        button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+        .response {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .loading {
+            color: #FFD700;
+        }
+        .error {
+            color: #FF6B6B;
+        }
+        .success {
+            color: #4CAF50;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.online {
+            background: #4CAF50;
+            color: white;
+        }
+        .status.offline {
+            background: #FF6B6B;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛰️ NASA BloomWatch API Viewer</h1>
+        <p style="text-align: center; font-size: 1.2em;">
+            Backend Status: <span id="status" class="status offline">Checking...</span>
+        </p>
+
+        <div class="endpoint-section">
+            <h3>🔍 Health Check</h3>
+            <p>Check if the backend is running and services are connected.</p>
+            <button onclick="checkHealth()">Check Health</button>
+            <div id="health-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="endpoint-section">
+            <h3>🌿 Vegetation Indices</h3>
+            <p>Get NDVI and EVI time series data for San Francisco Bay Area.</p>
+            <button onclick="getVegetationIndices()">Get Vegetation Data</button>
+            <div id="vegetation-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="endpoint-section">
+            <h3>🌸 Bloom Detection</h3>
+            <p>Detect bloom events using NASA satellite data analysis.</p>
+            <button onclick="detectBlooms()">Detect Blooms</button>
+            <div id="bloom-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="endpoint-section">
+            <h3>🔬 Species Identification</h3>
+            <p>Identify plant species based on bloom characteristics.</p>
+            <button onclick="identifySpecies()">Identify Species</button>
+            <div id="species-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="endpoint-section">
+            <h3>🐝 Bee Farming Analysis</h3>
+            <p>Get actionable insights for bee farming operations.</p>
+            <button onclick="analyzeBeeData()">Analyze for Bee Farming</button>
+            <div id="bee-response" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:5000';
+
+        // Check backend status on load
+        window.onload = function() {
+            checkHealth();
+        };
+
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        async function checkHealth() {
+            const responseDiv = document.getElementById('health-response');
+            const statusSpan = document.getElementById('status');
+            
+            responseDiv.style.display = 'block';
+            responseDiv.innerHTML = '<span class="loading">🔄 Checking backend health...</span>';
+            
+            try {
+                const data = await makeRequest(`${BASE_URL}/health`);
+                responseDiv.innerHTML = `<span class="success">✅ Backend is healthy!</span>\n\n${JSON.stringify(data, null, 2)}`;
+                statusSpan.textContent = 'Online';
+                statusSpan.className = 'status online';
+            } catch (error) {
+                responseDiv.innerHTML = `<span class="error">❌ Backend is offline!</span>\n\nError: ${error.message}\n\nMake sure the backend is running:\ncd backend\npython app.py`;
+                statusSpan.textContent = 'Offline';
+                statusSpan.className = 'status offline';
+            }
+        }
+
+        async function getVegetationIndices() {
+            const responseDiv = document.getElementById('vegetation-response');
+            responseDiv.style.display = 'block';
+            responseDiv.innerHTML = '<span class="loading">🌿 Fetching vegetation indices...</span>';
+            
+            try {
+                const payload = {
+                    latitude: 37.7749,
+                    longitude: -122.4194,
+                    start_date: "2023-06-01",
+                    end_date: "2023-08-31",
+                    indices: ["NDVI", "EVI"]
+                };
+                
+                const data = await makeRequest(`${BASE_URL}/api/vegetation/indices`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                
+                const timeSeries = data.indices.time_series;
+                let summary = `<span class="success">✅ Retrieved ${timeSeries.length} data points</span>\n\n`;
+                summary += `📊 VEGETATION INDEX SUMMARY:\n`;
+                summary += `Location: ${data.location.latitude}, ${data.location.longitude}\n`;
+                summary += `Period: ${data.period.start_date} to ${data.period.end_date}\n`;
+                summary += `Satellite: ${data.metadata.satellite}\n\n`;
+                summary += `📈 TIME SERIES DATA:\n`;
+                
+                timeSeries.forEach((point, i) => {
+                    summary += `${i+1:2}. ${point.date} | NDVI: ${point.ndvi.toFixed(4)} | EVI: ${point.evi.toFixed(4)}\n`;
+                });
+                
+                responseDiv.innerHTML = summary + '\n\n' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.innerHTML = `<span class="error">❌ Error fetching vegetation data</span>\n\n${error.message}`;
+            }
+        }
+
+        async function detectBlooms() {
+            const responseDiv = document.getElementById('bloom-response');
+            responseDiv.style.display = 'block';
+            responseDiv.innerHTML = '<span class="loading">🌸 Detecting bloom events...</span>';
+            
+            try {
+                const payload = {
+                    latitude: 37.7749,
+                    longitude: -122.4194,
+                    start_date: "2023-01-01",
+                    end_date: "2023-12-31",
+                    radius: 1000
+                };
+                
+                const data = await makeRequest(`${BASE_URL}/api/bloom/detect`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                
+                const blooms = data.bloom_events;
+                let summary = `<span class="success">✅ Found ${blooms.length} bloom events</span>\n\n`;
+                
+                blooms.forEach((bloom, i) => {
+                    summary += `🌺 BLOOM EVENT ${i+1}:\n`;
+                    summary += `  Period: ${bloom.start_date} → ${bloom.peak_date} → ${bloom.end_date}\n`;
+                    summary += `  Duration: ${bloom.duration_days} days\n`;
+                    summary += `  Peak NDVI: ${bloom.peak_ndvi.toFixed(3)}\n`;
+                    summary += `  Confidence: ${(bloom.confidence_score * 100).toFixed(1)}%\n`;
+                    summary += `  Species hints: ${bloom.species_hints.join(', ')}\n\n`;
+                });
+                
+                responseDiv.innerHTML = summary + JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.innerHTML = `<span class="error">❌ Error detecting blooms</span>\n\n${error.message}`;
+            }
+        }
+
+        async function identifySpecies() {
+            const responseDiv = document.getElementById('species-response');
+            responseDiv.style.display = 'block';
+            responseDiv.innerHTML = '<span class="loading">🔬 Identifying species...</span>';
+            
+            try {
+                const payload = {
+                    latitude: 37.7749,
+                    longitude: -122.4194,
+                    bloom_characteristics: {
+                        peak_ndvi: 0.8,
+                        bloom_duration: 45,
+                        bloom_timing: "2023-04-15"
+                    }
+                };
+                
+                const data = await makeRequest(`${BASE_URL}/api/species/identify`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                
+                const matches = data.species_matches;
+                let summary = `<span class="success">✅ Found ${matches.length} species matches</span>\n\n`;
+                
+                matches.forEach((species, i) => {
+                    summary += `🌺 SPECIES MATCH ${i+1}:\n`;
+                    summary += `  Name: ${species.species_name}\n`;
+                    summary += `  Scientific: ${species.scientific_name}\n`;
+                    summary += `  Confidence: ${(species.confidence * 100).toFixed(1)}%\n`;
+                    summary += `  Habitat: ${species.species_info.habitat.join(', ')}\n`;
+                    summary += `  Economic importance: ${species.species_info.economic_importance}\n`;
+                    summary += `  Pollinator value: ${species.species_info.pollinator_value}\n\n`;
+                });
+                
+                responseDiv.innerHTML = summary + JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.innerHTML = `<span class="error">❌ Error identifying species</span>\n\n${error.message}`;
+            }
+        }
+
+        async function analyzeBeeData() {
+            const responseDiv = document.getElementById('bee-response');
+            responseDiv.style.display = 'block';
+            responseDiv.innerHTML = '<span class="loading">🐝 Analyzing for bee farming...</span>';
+            
+            try {
+                // Get bloom data first
+                const payload = {
+                    latitude: 37.7749,
+                    longitude: -122.4194,
+                    start_date: "2023-01-01",
+                    end_date: "2023-12-31"
+                };
+                
+                const data = await makeRequest(`${BASE_URL}/api/bloom/detect`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                
+                const blooms = data.bloom_events;
+                let summary = `<span class="success">🍯 BEE FARMING ANALYSIS</span>\n\n`;
+                
+                blooms.forEach((bloom, i) => {
+                    const intensity = bloom.bloom_intensity;
+                    let nectarFlow, honeyPerHive;
+                    
+                    if (intensity > 0.8) {
+                        nectarFlow = "HEAVY";
+                        honeyPerHive = 25;
+                    } else if (intensity > 0.6) {
+                        nectarFlow = "MODERATE";
+                        honeyPerHive = 15;
+                    } else if (intensity > 0.4) {
+                        nectarFlow = "LIGHT";
+                        honeyPerHive = 8;
+                    } else {
+                        nectarFlow = "MINIMAL";
+                        honeyPerHive = 3;
+                    }
+                    
+                    const numHives = 25;
+                    const totalHoney = honeyPerHive * numHives;
+                    const revenuePerKg = 15;
+                    const totalRevenue = totalHoney * revenuePerKg;
+                    
+                    summary += `🌸 BLOOM EVENT ${i+1} (${bloom.start_date} to ${bloom.end_date}):\n`;
+                    summary += `  Species: ${bloom.species_hints.join(', ')}\n`;
+                    summary += `  Nectar Flow: ${nectarFlow}\n`;
+                    summary += `  Expected Honey: ${honeyPerHive}kg per hive\n`;
+                    summary += `  Total Production: ${totalHoney}kg (${numHives} hives)\n`;
+                    summary += `  Revenue Potential: $${totalRevenue.toLocaleString()}\n`;
+                    summary += `  Optimal Placement: ${bloom.start_date}\n`;
+                    
+                    if (intensity > 0.6) {
+                        summary += `  🚛 RECOMMENDATION: Move hives 2-3 days before bloom start\n`;
+                        summary += `  ⚠️  URGENT: High-value bloom opportunity!\n`;
+                    } else {
+                        summary += `  📝 NOTE: Consider for supplemental nectar source\n`;
+                    }
+                    summary += '\n';
+                });
+                
+                responseDiv.innerHTML = summary;
+            } catch (error) {
+                responseDiv.innerHTML = `<span class="error">❌ Error analyzing bee data</span>\n\n${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
